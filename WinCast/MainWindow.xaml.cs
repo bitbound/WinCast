@@ -174,19 +174,15 @@ namespace WinCast
                             try
                             {
                                 string key = jsonMessage.Key;
-                                if (key.Length == 1)
+                                if (key.Length > 1 && key.Replace("+", "").Replace("^", "").Replace("%", "").Length > 1)
                                 {
-                                    SendKeys.SendWait(key);
-                                } else if (key.Length > 1)
-                                {
-
                                     key = "{" + key + "}";
-                                    SendKeys.SendWait(key);
                                 }
+                                SendKeys.SendWait(key);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                throw ex;
+                                // TODO: Report missing keybind.
                             }
                             break;
                         default:
