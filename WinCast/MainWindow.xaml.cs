@@ -45,6 +45,7 @@ namespace WinCast
         bool capturing = false;
         int totalHeight = 0;
         int totalWidth = 0;
+        bool firstScreenshot = true;
 
 
         public MainWindow()
@@ -244,14 +245,14 @@ namespace WinCast
                 var font = new Font(System.Drawing.FontFamily.GenericSansSerif, 30, System.Drawing.FontStyle.Bold);
                 graphic.DrawString("Waiting for screen capture...", font, System.Drawing.Brushes.Black, new PointF((totalWidth / 2), totalHeight / 2), new StringFormat() { Alignment = StringAlignment.Center });
             }
-            
+
             newData = getChangedPixels(screenshot, lastFrame);
             if (newData != null)
             {
                 croppedFrame = screenshot.Clone(boundingBox, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                 using (var ms = new MemoryStream())
                 {
-                    if (lastFrame == null)
+                    if (firstScreenshot)
                     {
                         // If first screenshot, send entire screen.
                         screenshot.Save(ms, jpgEncoder, encoderParameters);
@@ -259,6 +260,7 @@ namespace WinCast
                         ms.WriteByte(0);
                         ms.WriteByte(0);
                         ms.WriteByte(0);
+                        firstScreenshot = false;
                     }
                     else
                     {
