@@ -61,5 +61,25 @@ namespace WinCast
 
         [DllImport("user32.dll")]
         public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        public static void sendLeftMouseDown(int x, int y)
+        {
+            User32.mouse_event(User32.MOUSEEVENTF_LEFTDOWN, (uint)x, (uint)y, 0, 0);
+        }
+        public static void sendLeftMouseUp(int x, int y)
+        {
+            User32.mouse_event(User32.MOUSEEVENTF_LEFTUP, (uint)x, (uint)y, 0, 0);
+        }
+        public static void sendRightMouseDown(int x, int y)
+        {
+            User32.mouse_event(User32.MOUSEEVENTF_RIGHTDOWN, (uint)x, (uint)y, 0, 0);
+        }
+        public static void sendRightMouseUp(int x, int y)
+        {
+            User32.mouse_event(User32.MOUSEEVENTF_RIGHTUP, (uint)x, (uint)y, 0, 0);
+        }
+        public static void sendMouseMove(int x, int y)
+        {
+            System.Windows.Forms.Cursor.Position = new System.Drawing.Point(x, y);
+        }
     }
 }

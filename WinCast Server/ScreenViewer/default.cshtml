@@ -10,11 +10,31 @@
     
 </head>
 <body>
-    <div>
-        <label for="inputSessionID">Client session ID: </label>
-        <input id="inputSessionID" type="text" onkeypress="if (event.keyCode == 13) { connectToClient() }" />
+    <div style="float:left">
+        <input id="inputSessionID" placeholder="Enter client session ID." type="text" onkeypress="if (event.keyCode == 13) { connectToClient() }" />
         <button id="buttonConnect" onclick="connectToClient()">Connect</button>
     </div>
-    <canvas id="canvasScreenViewer" style="width:100%; margin-top:10px; border:1px solid gray; background-color: lightgray"></canvas>
+    <div style="float:right; text-align:right; margin-right: 40px">
+        <label style="font:.8em sans-serif">Client download link:</label>
+        <input readonly value="https://instatech.org/Downloads/" style="font:.8em; color: gray"/>
+        <button type="button">Copy</button>
+    </div>
+    <img id="imgMenu" src="~/Assets/Images/HamburgerMenu_16x.svg" />
+    
+    <canvas id="canvasScreenViewer" height="400" width="800" style="width: 100%; margin-top: 10px; border: 1px groove gray; background-color: lightgray;"></canvas>
+
+    <style>
+        #imgMenu {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 30px;
+            height: 25px;
+            cursor: pointer;
+        }
+        #imgMenu:hover {
+            background-color: deepskyblue;
+        }
+    </style>
 </body>
 </html>

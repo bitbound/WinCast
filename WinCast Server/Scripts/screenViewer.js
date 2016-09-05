@@ -2,8 +2,13 @@
 InstaTech.ScreenViewer = InstaTech.ScreenViewer || {};
 InstaTech.ScreenViewer.Socket = InstaTech.ScreenViewer.Socket || {};
 InstaTech.ScreenViewer.Connected = false;
+var byteArray;
+var imageData;
+var imgWidth;
+var imgHeight;
+var imgX;
+var imgY;
 var url;
-var img;
 
 function connectToClient() {
     if (!InstaTech.ScreenViewer.Connected)
@@ -14,9 +19,11 @@ function connectToClient() {
         else {
             InstaTech.ScreenViewer.Socket = new WebSocket("wss://translucency.info/InstaTech/Sockets/ScreenViewer.cshtml");
         };
+        InstaTech.ScreenViewer.Socket.binaryType = "arraybuffer";
         $("#buttonConnect").text("Disconnect");
         $("#inputSessionID").attr("readonly", "true");
         InstaTech.ScreenViewer.Connected = true;
+        drawMessage("Connecting...");
         InstaTech.ScreenViewer.Socket.onopen = function (e) {
             var request = {
                 "Type": "ConnectionType",
@@ -34,18 +41,22 @@ function connectToClient() {
         InstaTech.ScreenViewer.Socket.onclose = function (e) {
             InstaTech.ScreenViewer.Connected = false;
             $("#buttonConnect").text("Connect");
-            $("#inputSessionID").attr("readonly", "false");
-            drawMessage("Session disconnected.");
+            $("#inputSessionID").attr("readonly", false);
         };
         InstaTech.ScreenViewer.Socket.onerror = function (e) {
             InstaTech.ScreenViewer.Connected = false;
             $("#buttonConnect").text("Connect");
-            $("#inputSessionID").attr("readonly", "false");
+            $("#inputSessionID").removeAttr("readyonly");
             drawMessage("Session disconnected due to error.");
         };
         InstaTech.ScreenViewer.Socket.onmessage = function (e) {
-            if (e.data instanceof Blob) {
-                url = window.URL.createObjectURL(e.data);
+            if (e.data instanceof ArrayBuffer) {
+                var isv = InstaTech.ScreenViewer;
+                byteArray = new Uint8Array(e.data);
+                var length = byteArray.length;
+                imgX = Number(byteArray[length - 4] * 100 + byteArray[length - 3]);
+                imgY = Number(byteArray[length - 2] * 100 + byteArray[length - 1]);
+                url = window.URL.createObjectURL(new Blob([byteArray.subarray(0, length - 5)]));
                 img.src = url;
                 return;
             }
@@ -53,18 +64,27 @@ function connectToClient() {
                 var jsonData = JSON.parse(e.data);
                 var isc = InstaTech.ScreenViewer.Context;
                 switch (jsonData.Type) {
+                    case "Connect":
+                        {
+                            if (jsonData.Status == "InvalidID")
+                            {
+                                InstaTech.ScreenViewer.Socket.close();
+                                drawMessage("Session ID not found.");
+                            }
+                            break;
+                        }
                     case "PartnerClose":
-                        InstaTech.ScreenViewer.Connected = false;
-                        $("#buttonConnect").text("Connect");
-                        $("#inputSessionID").attr("readonly", "false");
-                        drawMessage("Session disconnected.");
-                        break;
+                        {
+                            InstaTech.ScreenViewer.Socket.close();
+                            drawMessage("Session disconnected.");
+                            break;
+                        }
                     case "PartnerError":
-                        InstaTech.ScreenViewer.Connected = false;
-                        $("#buttonConnect").text("Connect");
-                        $("#inputSessionID").attr("readonly", "false");
-                        drawMessage("Session disconnected due to partner error.");
-                        break;
+                        {
+                            InstaTech.ScreenViewer.Socket.close();
+                            drawMessage("Session disconnected due to partner error.");
+                            break;
+                        }
                     default:
                         break;
                 };
@@ -92,26 +112,15 @@ $(document).ready(function () {
     img = document.createElement("img");
     img.onload = function () {
         var isv = InstaTech.ScreenViewer;
-        if (isv.Context.canvas.width != img.width || isv.Context.canvas.height != img.height)
+        if (img.width > isv.Context.canvas.width)
         {
             isv.Context.canvas.width = img.width;
+        }
+        if (img.height > isv.Context.canvas.height)
+        {
             isv.Context.canvas.height = img.height;
         }
-        var currentData = isv.Context.getImageData(0, 0, isv.Context.canvas.width, isv.Context.canvas.height);
-        isv.Context.clearRect(0, 0, isv.Context.canvas.width, isv.Context.canvas.height);
-        isv.Context.drawImage(img, 0, 0, img.width, img.height);
-        var newData = isv.Context.getImageData(0, 0, isv.Context.canvas.width, isv.Context.canvas.height);
-        for (var i = 0; i < newData.data.length - 4; i += 4)
-        {
-            if ((newData.data[i] != 170 && newData.data[i + 1] != 170 && newData.data[i + 2] != 170))
-            {
-                currentData.data[i] = newData.data[i];
-                currentData.data[i + 1] = newData.data[i + 1];
-                currentData.data[i + 2] = newData.data[i + 2];
-                currentData.data[i + 3] = newData.data[i + 3];
-            }
-        }
-        isv.Context.putImageData(currentData, 0, 0);
+        isv.Context.drawImage(img, imgX, imgY, img.width, img.height);
         window.URL.revokeObjectURL(url);
     };
     $("#canvasScreenViewer").on("mousemove", function (e) {

@@ -20,6 +20,7 @@ using System.Net.WebSockets;
 using System.Threading;
 using System.IO;
 using Newtonsoft.Json;
+using System.Drawing.Imaging;
 
 namespace WinCast
 {
@@ -32,13 +33,19 @@ namespace WinCast
         string servicePath = "wss://instatech.org/Sockets/ScreenViewer.cshtml";
 #endif
         ClientWebSocket socket { get; set; }
-        Bitmap bitmap { get; set; }
+
+        Bitmap screenshot { get; set; }
+        ImageCodecInfo jpgEncoder { get; set; }
+        EncoderParameters encoderParameters = new EncoderParameters(1);
         Bitmap lastFrame { get; set; }
-        Bitmap newFrame { get; set; }
+        Bitmap croppedFrame { get; set; }
+        byte[] newData;
+        System.Drawing.Rectangle boundingBox { get; set; }
         Graphics graphic { get; set; }
         bool capturing = false;
         int totalHeight = 0;
         int totalWidth = 0;
+
 
         public MainWindow()
         {
@@ -47,29 +54,9 @@ namespace WinCast
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            initEncoder();
             getScreenSizes();
             initWebSocket();
-        }
-
-        private void sendLeftMouseDown(int x, int y)
-        {
-            User32.mouse_event(User32.MOUSEEVENTF_LEFTDOWN, (uint)x, (uint)y, 0, 0);
-        }
-        private void sendLeftMouseUp(int x, int y)
-        {
-            User32.mouse_event(User32.MOUSEEVENTF_LEFTUP, (uint)x, (uint)y, 0, 0);
-        }
-        private void sendRightMouseDown(int x, int y)
-        {
-            User32.mouse_event(User32.MOUSEEVENTF_RIGHTDOWN, (uint)x, (uint)y, 0, 0);
-        }
-        private void sendRightMouseUp(int x, int y)
-        {
-            User32.mouse_event(User32.MOUSEEVENTF_RIGHTUP, (uint)x, (uint)y, 0, 0);
-        }
-        private void sendMouseMove(int x, int y)
-        {
-            System.Windows.Forms.Cursor.Position = new System.Drawing.Point(x, y);
         }
 
         private void getScreenSizes()
@@ -82,9 +69,9 @@ namespace WinCast
                 }
                 totalWidth += Monitor.Bounds.Width;
             }
-            bitmap = new Bitmap(totalWidth, totalHeight);
+            screenshot = new Bitmap(totalWidth, totalHeight);
             lastFrame = new Bitmap(totalWidth, totalHeight);
-            graphic = Graphics.FromImage(bitmap);
+            graphic = Graphics.FromImage(screenshot);
         }
         private async void initWebSocket()
         {
@@ -139,26 +126,26 @@ namespace WinCast
                                 beginScreenCapture();
                                 break;
                             case "MouseMove":
-                                sendMouseMove((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
+                                User32.sendMouseMove((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
                                 break;
                             case "MouseDown":
                                 if (jsonMessage.Button == "Left")
                                 {
-                                    sendLeftMouseDown((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
+                                    User32.sendLeftMouseDown((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
                                 }
                                 else if (jsonMessage.Button == "Right")
                                 {
-                                    sendRightMouseDown((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
+                                    User32.sendRightMouseDown((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
                                 }
                                 break;
                             case "MouseUp":
                                 if (jsonMessage.Button == "Left")
                                 {
-                                    sendLeftMouseUp((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
+                                    User32.sendLeftMouseUp((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
                                 }
                                 else if (jsonMessage.Button == "Right")
                                 {
-                                    sendRightMouseUp((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
+                                    User32.sendRightMouseUp((int)Math.Round(((double)jsonMessage.PointX * totalWidth), 0), (int)Math.Round(((double)jsonMessage.PointY * totalHeight), 0));
                                 }
                                 break;
                             case "KeyPress":
@@ -257,27 +244,38 @@ namespace WinCast
                 var font = new Font(System.Drawing.FontFamily.GenericSansSerif, 30, System.Drawing.FontStyle.Bold);
                 graphic.DrawString("Waiting for screen capture...", font, System.Drawing.Brushes.Black, new PointF((totalWidth / 2), totalHeight / 2), new StringFormat() { Alignment = StringAlignment.Center });
             }
-            graphic.Save();
-
-            var ran = new Random();
-            // Occassionally send the whole image to reduce artifacts.
-            if (ran.NextDouble() > .3)
+            
+            newData = getChangedPixels(screenshot, lastFrame);
+            if (newData != null)
             {
-                newFrame = removeUnchangedPixels(bitmap, lastFrame, 170);
+                croppedFrame = screenshot.Clone(boundingBox, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                using (var ms = new MemoryStream())
+                {
+                    if (lastFrame == null)
+                    {
+                        // If first screenshot, send entire screen.
+                        screenshot.Save(ms, jpgEncoder, encoderParameters);
+                        ms.WriteByte(0);
+                        ms.WriteByte(0);
+                        ms.WriteByte(0);
+                        ms.WriteByte(0);
+                    }
+                    else
+                    {
+                        croppedFrame.Save(ms, jpgEncoder, encoderParameters);
+                        // Add x,y coordinates of top-left of image so receiver knows where to draw it.
+                        foreach (var metaByte in newData)
+                        {
+                            ms.WriteByte(metaByte);
+                        }
+                    }
+                    await socket.SendAsync(new ArraySegment<byte>(ms.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
+                }
             }
-            else
-            {
-                newFrame = bitmap;
-            }
-            lastFrame = (Bitmap)bitmap.Clone();
-            using (var ms = new MemoryStream())
-            {
-                newFrame.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                await socket.SendAsync(new ArraySegment<byte>(ms.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
-            }
-            // For testing.
-            //newFrame.Save(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "\\Test.png", System.Drawing.Imaging.ImageFormat.Jpeg);
+            lastFrame = (Bitmap)screenshot.Clone();
         }
+
+
         private void textSessionID_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             System.Windows.Clipboard.SetText(textSessionID.Text);
@@ -290,7 +288,100 @@ namespace WinCast
             stackMain.Visibility = Visibility.Visible;
             initWebSocket();
         }
+        private void initEncoder()
+        {
+            ImageCodecInfo[] codecs = ImageCodecInfo.GetImageEncoders();
+            jpgEncoder = codecs.FirstOrDefault(ici => ici.FormatID == ImageFormat.Jpeg.Guid);
+            System.Drawing.Imaging.Encoder quality = System.Drawing.Imaging.Encoder.Quality;
+            encoderParameters.Param[0] = new EncoderParameter(quality, (long)25);
+        }
+        private byte[] getChangedPixels(Bitmap bitmap1, Bitmap bitmap2)
+        {
+            if (bitmap1.Height != bitmap2.Height || bitmap1.Width != bitmap2.Width)
+            {
+                throw new Exception("Bitmaps are not of equal dimensions.");
+            }
+            if (!Bitmap.IsAlphaPixelFormat(bitmap1.PixelFormat) || !Bitmap.IsAlphaPixelFormat(bitmap2.PixelFormat) ||
+                !Bitmap.IsCanonicalPixelFormat(bitmap1.PixelFormat) || !Bitmap.IsCanonicalPixelFormat(bitmap2.PixelFormat))
+            {
+                throw new Exception("Bitmaps must be 32 bits per pixel and contain alpha channel.");
+            }
+            var width = bitmap1.Width;
+            var height = bitmap1.Height;
+            byte[] newImgData;
+            int left = int.MaxValue;
+            int top = int.MaxValue;
+            int right = int.MinValue;
+            int bottom = int.MinValue;
 
+            var bd1 = bitmap1.LockBits(new System.Drawing.Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, bitmap1.PixelFormat);
+            var bd2 = bitmap2.LockBits(new System.Drawing.Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, bitmap2.PixelFormat);
+            // Get the address of the first line.
+            IntPtr ptr1 = bd1.Scan0;
+            IntPtr ptr2 = bd2.Scan0;
+
+            // Declare an array to hold the bytes of the bitmap.
+            int bytes = Math.Abs(bd1.Stride) * screenshot.Height;
+            byte[] rgbValues1 = new byte[bytes];
+            byte[] rgbValues2 = new byte[bytes];
+
+            // Copy the RGBA values into the array.
+            Marshal.Copy(ptr1, rgbValues1, 0, bytes);
+            Marshal.Copy(ptr2, rgbValues2, 0, bytes);
+
+            // Check RGBA value for each pixel.
+            for (int counter = 0; counter < rgbValues1.Length - 4; counter += 4)
+            {
+                if (rgbValues1[counter] != rgbValues2[counter] ||
+                    rgbValues1[counter + 1] != rgbValues2[counter + 1] ||
+                    rgbValues1[counter + 2] != rgbValues2[counter + 2] ||
+                    rgbValues1[counter + 3] != rgbValues2[counter + 3])
+                {
+                    // Change was found.
+                    var pixel = counter / 4;
+                    var row = (int)Math.Floor((double)pixel / bd1.Width);
+                    var column = pixel % bd1.Width;
+                    if (row < top)
+                    {
+                        top = row;
+                    }
+                    if (row > bottom)
+                    {
+                        bottom = row;
+                    }
+                    if (column < left)
+                    {
+                        left = column;
+                    }
+                    if (column > right)
+                    {
+                        right = column;
+                    }
+                }
+            }
+            if (left < right && top < bottom)
+            {
+                // Bounding box is valid.
+
+                // Byte array that indicates top left coordinates of the image.
+                newImgData = new byte[4];
+                newImgData[0] = Byte.Parse(left.ToString().PadLeft(4, '0').Substring(0, 2));
+                newImgData[1] = Byte.Parse(left.ToString().PadLeft(4, '0').Substring(2, 2));
+                newImgData[2] = Byte.Parse(top.ToString().PadLeft(4, '0').Substring(0, 2));
+                newImgData[3] = Byte.Parse(top.ToString().PadLeft(4, '0').Substring(2, 2));
+
+                boundingBox = new System.Drawing.Rectangle(left, top, right - left, bottom - top);
+                bitmap1.UnlockBits(bd1);
+                bitmap2.UnlockBits(bd2);
+                return newImgData;
+            }
+            else
+            {
+                bitmap1.UnlockBits(bd1);
+                bitmap2.UnlockBits(bd2);
+                return null;
+            }
+        }
         private Bitmap removeUnchangedPixels(Bitmap bitmap1, Bitmap bitmap2, byte transparentValue)
         {
             if (bitmap1.Height != bitmap2.Height || bitmap1.Width != bitmap2.Width)
@@ -306,17 +397,16 @@ namespace WinCast
             var height = bitmap1.Height;
             var bitmapNew = new Bitmap(width, height);
 
-            var bd1 = bitmap1.LockBits(new System.Drawing.Rectangle(0, 0, width, height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap1.PixelFormat);
-            var bd2 = bitmap2.LockBits(new System.Drawing.Rectangle(0, 0, width, height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap2.PixelFormat);
-            var bd3 = bitmapNew.LockBits(new System.Drawing.Rectangle(0, 0, width, height), System.Drawing.Imaging.ImageLockMode.WriteOnly, bitmapNew.PixelFormat);
-
+            var bd1 = bitmap1.LockBits(new System.Drawing.Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, bitmap1.PixelFormat);
+            var bd2 = bitmap2.LockBits(new System.Drawing.Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, bitmap2.PixelFormat);
+            var bd3 = bitmapNew.LockBits(new System.Drawing.Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, bitmapNew.PixelFormat);
             // Get the address of the first line.
             IntPtr ptr1 = bd1.Scan0;
             IntPtr ptr2 = bd2.Scan0;
             IntPtr ptr3 = bd3.Scan0;
 
             // Declare an array to hold the bytes of the bitmap.
-            int bytes = Math.Abs(bd1.Stride) * bitmap.Height;
+            int bytes = Math.Abs(bd1.Stride) * screenshot.Height;
             byte[] rgbValues1 = new byte[bytes];
             byte[] rgbValues2 = new byte[bytes];
             byte[] rgbValues3 = new byte[bytes];
@@ -357,5 +447,6 @@ namespace WinCast
 
             return bitmapNew;
         }
+
     }
 }

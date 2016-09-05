@@ -84,7 +84,12 @@ namespace InstaTech.App_Code.SocketHandlers
                         }
                         else
                         {
-                            // TODO: Error handling.
+                            var request = new
+                            {
+                                Type = "Connect",
+                                Status = "InvalidID"
+                            };
+                            Send(Json.Encode(request));
                         }
                         break;
                     }
