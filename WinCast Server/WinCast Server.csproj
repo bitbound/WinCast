@@ -68,8 +68,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Images\HamburgerMenu_16x.svg" />
-    <Content Include="Assets\Images\LogoDark.png" />
-    <Content Include="Assets\Images\LogoLight.png" />
     <Content Include="bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll.refresh" />
     <Content Include="bin\Microsoft.Web.Helpers.dll.refresh" />
     <Content Include="bin\Microsoft.Web.Infrastructure.dll.refresh" />
