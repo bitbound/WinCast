@@ -22,6 +22,7 @@ var imgHeight;
 var imgX;
 var imgY;
 var url;
+var img;
 
 function connectToClient() {
     if (!WinCast.ScreenViewer.Connected)
