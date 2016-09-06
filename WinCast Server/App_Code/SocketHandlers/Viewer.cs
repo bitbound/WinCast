@@ -5,7 +5,7 @@ using System.Web;
 using Microsoft.Web.WebSockets;
 using System.Web.Helpers;
 
-namespace InstaTech.App_Code.SocketHandlers
+namespace WinCast.App_Code.SocketHandlers
 {
     public class Viewer : WebSocketHandler
     {

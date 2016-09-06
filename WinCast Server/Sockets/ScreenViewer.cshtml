@@ -1,7 +1,7 @@
 ﻿@{
     if (Context.IsWebSocketRequest)
     {
-        Microsoft.Web.WebSockets.WebSocketExtensions.AcceptWebSocketRequest(Context, new InstaTech.App_Code.SocketHandlers.Viewer());
+        Microsoft.Web.WebSockets.WebSocketExtensions.AcceptWebSocketRequest(Context, new WinCast.App_Code.SocketHandlers.Viewer());
         return;
     }
 }
