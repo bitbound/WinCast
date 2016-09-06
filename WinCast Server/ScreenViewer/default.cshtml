@@ -4,7 +4,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>InstaTech Screen Viewer</title>
+    <title>WinCast Screen Viewer</title>
     <script src="~/Scripts/jquery-3.1.0.js"></script>
     <script src="~/Scripts/screenViewer.js"></script>
     
@@ -16,8 +16,8 @@
     </div>
     <div style="float:right; text-align:right; margin-right: 40px">
         <label style="font:.8em sans-serif">Client download link:</label>
-        <input readonly value="https://instatech.org/Downloads/" style="font:.8em; color: gray"/>
-        <button type="button">Copy</button>
+        <input id="inputClientLink" readonly value="" style="font:.8em; color: gray; cursor: pointer" onclick="this.select()"/>
+        <button type="button" onclick="copyClientLink()">Copy</button>
     </div>
     <img id="imgMenu" src="~/Assets/Images/HamburgerMenu_16x.svg" />
     
@@ -33,7 +33,7 @@
             cursor: pointer;
         }
         #imgMenu:hover {
-            background-color: deepskyblue;
+            border: 1px groove deepskyblue;
         }
     </style>
 </body>

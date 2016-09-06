@@ -1,7 +1,20 @@
-﻿var InstaTech = InstaTech || {};
-InstaTech.ScreenViewer = InstaTech.ScreenViewer || {};
-InstaTech.ScreenViewer.Socket = InstaTech.ScreenViewer.Socket || {};
-InstaTech.ScreenViewer.Connected = false;
+﻿///* User variables.  Update these values. *///
+
+// Important: If your site isn't configured for SSL/TLS, change this to "ws://".
+var webSocketProtocol = "wss://";
+
+// Do not include "http"/"https".
+var siteHostURL = "www.yoursitehere.com";
+
+// Full URL to the webpage where the client EXE can be downloaded.
+var downloadURL = "";
+
+///* End of user variables. *///
+
+var WinCast = WinCast || {};
+WinCast.ScreenViewer = WinCast.ScreenViewer || {};
+WinCast.ScreenViewer.Socket = WinCast.ScreenViewer.Socket || {};
+WinCast.ScreenViewer.Connected = false;
 var byteArray;
 var imageData;
 var imgWidth;
@@ -11,47 +24,47 @@ var imgY;
 var url;
 
 function connectToClient() {
-    if (!InstaTech.ScreenViewer.Connected)
+    if (!WinCast.ScreenViewer.Connected)
     {
         if (window.location.href.search("localhost") > -1) {
-            InstaTech.ScreenViewer.Socket = new WebSocket("ws://localhost:62637/Sockets/ScreenViewer.cshtml");
+            WinCast.ScreenViewer.Socket = new WebSocket("ws://localhost:62637/Sockets/ScreenViewer.cshtml");
         }
         else {
-            InstaTech.ScreenViewer.Socket = new WebSocket("wss://translucency.info/InstaTech/Sockets/ScreenViewer.cshtml");
+            WinCast.ScreenViewer.Socket = new WebSocket(webSocketProtocol + siteHostURL + "/WinCast/Sockets/ScreenViewer.cshtml");
         };
-        InstaTech.ScreenViewer.Socket.binaryType = "arraybuffer";
+        WinCast.ScreenViewer.Socket.binaryType = "arraybuffer";
         $("#buttonConnect").text("Disconnect");
         $("#inputSessionID").attr("readonly", "true");
-        InstaTech.ScreenViewer.Connected = true;
+        WinCast.ScreenViewer.Connected = true;
         drawMessage("Connecting...");
-        InstaTech.ScreenViewer.Socket.onopen = function (e) {
+        WinCast.ScreenViewer.Socket.onopen = function (e) {
             var request = {
                 "Type": "ConnectionType",
                 "ConnectionType": "HostApp"
             };
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
 
             var sessionID = $("#inputSessionID").val();
             request = {
                 "Type": "Connect",
                 "SessionID": sessionID
             };
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
         };
-        InstaTech.ScreenViewer.Socket.onclose = function (e) {
-            InstaTech.ScreenViewer.Connected = false;
+        WinCast.ScreenViewer.Socket.onclose = function (e) {
+            WinCast.ScreenViewer.Connected = false;
             $("#buttonConnect").text("Connect");
             $("#inputSessionID").attr("readonly", false);
         };
-        InstaTech.ScreenViewer.Socket.onerror = function (e) {
-            InstaTech.ScreenViewer.Connected = false;
+        WinCast.ScreenViewer.Socket.onerror = function (e) {
+            WinCast.ScreenViewer.Connected = false;
             $("#buttonConnect").text("Connect");
-            $("#inputSessionID").removeAttr("readyonly");
+            $("#inputSessionID").attr("readonly", false);
             drawMessage("Session disconnected due to error.");
         };
-        InstaTech.ScreenViewer.Socket.onmessage = function (e) {
+        WinCast.ScreenViewer.Socket.onmessage = function (e) {
             if (e.data instanceof ArrayBuffer) {
-                var isv = InstaTech.ScreenViewer;
+                var wc = WinCast.ScreenViewer;
                 byteArray = new Uint8Array(e.data);
                 var length = byteArray.length;
                 imgX = Number(byteArray[length - 4] * 100 + byteArray[length - 3]);
@@ -62,26 +75,26 @@ function connectToClient() {
             }
             else {
                 var jsonData = JSON.parse(e.data);
-                var isc = InstaTech.ScreenViewer.Context;
+                var isc = WinCast.ScreenViewer.Context;
                 switch (jsonData.Type) {
                     case "Connect":
                         {
                             if (jsonData.Status == "InvalidID")
                             {
-                                InstaTech.ScreenViewer.Socket.close();
+                                WinCast.ScreenViewer.Socket.close();
                                 drawMessage("Session ID not found.");
                             }
                             break;
                         }
                     case "PartnerClose":
                         {
-                            InstaTech.ScreenViewer.Socket.close();
+                            WinCast.ScreenViewer.Socket.close();
                             drawMessage("Session disconnected.");
                             break;
                         }
                     case "PartnerError":
                         {
-                            InstaTech.ScreenViewer.Socket.close();
+                            WinCast.ScreenViewer.Socket.close();
                             drawMessage("Session disconnected due to partner error.");
                             break;
                         }
@@ -91,41 +104,117 @@ function connectToClient() {
             }
         }
     }
-    else if (InstaTech.ScreenViewer.Connected) {
-        InstaTech.ScreenViewer.Socket.close();
+    else if (WinCast.ScreenViewer.Connected) {
+        WinCast.ScreenViewer.Socket.close();
     }
 };
-function drawMessage(strMessage)
-{
-    var isc = InstaTech.ScreenViewer.Context;
+function drawMessage(strMessage) {
+    var isc = WinCast.ScreenViewer.Context;
     isc.fillStyle = "lightgray";
     isc.fillRect(0, 0, isc.canvas.width, isc.canvas.height);
     isc.fillStyle = "black";
     isc.textAlign = "center";
     isc.textBaseline = "middle";
-    var emSize = Math.round(isc.canvas.width / 400);
+    var emSize = isc.canvas.width / 500;
     isc.font = emSize + "em sans-serif";
     isc.fillText(strMessage, isc.canvas.width / 2, isc.canvas.height / 2);
+};
+
+function copyClientLink() {
+    $("#inputClientLink").select();
+    try {
+        var result = document.execCommand("copy");
+    }
+    catch (ex) {
+        showTooltip($("#inputClientLink"), "bottom", "red", "Failed to copy to clipboard.");
+    };
+    if (result) {
+        showTooltip($("#inputClientLink"), "bottom", "seagreen", "Link copied to clipboard.");
+    }
+    else {
+        showTooltip($("#inputClientLink"), "bottom", "red", "Failed to copy to clipboard.");
+    };
+};
+function showTooltip(objPlacementTarget, strPlacementDirection, strColor, strMessage) {
+    if (objPlacementTarget instanceof jQuery) {
+        objPlacementTarget = objPlacementTarget[0];
+    }
+    var divTooltip = document.createElement("div");
+    divTooltip.innerText = strMessage;
+    divTooltip.classList.add("tooltip");
+    divTooltip.style.zIndex = 3;
+    divTooltip.id = "tooltip" + String(Math.random());
+    $(divTooltip).css({
+        "position": "absolute",
+        "background-color": "whitesmoke",
+        "color": strColor,
+        "border-radius": "10px",
+        "padding": "5px",
+        "border": "1px solid dimgray",
+    });
+    var rectPlacement = objPlacementTarget.getBoundingClientRect();
+    switch (strPlacementDirection) {
+        case "top":
+            {
+                divTooltip.style.bottom = Number(rectPlacement.top - 5) + "px";
+                divTooltip.style.left = rectPlacement.left + "px";
+                break;
+            }
+        case "right":
+            {
+                divTooltip.style.top = rectPlacement.top + "px";
+                divTooltip.style.left = Number(rectPlacement.right + 5) + "px";
+                break;
+            }
+        case "bottom":
+            {
+                divTooltip.style.top = Number(rectPlacement.bottom + 5) + "px";
+                divTooltip.style.left = rectPlacement.left + "px";
+                break;
+            }
+        case "left":
+            {
+                divTooltip.style.top = rectPlacement.top + "px";
+                divTooltip.style.right = Number(rectPlacement.left - 5) + "px";
+                break;
+            }
+        case "center":
+            {
+                divTooltip.style.top = Number(rectPlacement.bottom - (rectPlacement.height / 2)) + "px";
+                divTooltip.style.left = Number(rectPlacement.right - (rectPlacement.width / 2)) + "px";
+                divTooltip.style.transform = "translateX(-50%)";
+            }
+        default:
+            break;
+    }
+    $(document.body).append(divTooltip);
+    window.setTimeout(function () {
+        $(divTooltip).animate({ opacity: 0 }, 1000, function () {
+            $("#" + divTooltip.id).remove();
+        })
+    }, 1500);
 }
 $(document).ready(function () {
-    InstaTech.ScreenViewer.Context = document.getElementById("canvasScreenViewer").getContext("2d");
+    WinCast.ScreenViewer.Context = document.getElementById("canvasScreenViewer").getContext("2d");
+    $("#inputClientLink").val(downloadURL);
+    drawMessage("Enter partner's session ID and click Connect.")
     img = document.createElement("img");
     img.onload = function () {
-        var isv = InstaTech.ScreenViewer;
-        if (img.width > isv.Context.canvas.width)
+        var wc = WinCast.ScreenViewer;
+        if (img.width > wc.Context.canvas.width)
         {
-            isv.Context.canvas.width = img.width;
+            wc.Context.canvas.width = img.width;
         }
-        if (img.height > isv.Context.canvas.height)
+        if (img.height > wc.Context.canvas.height)
         {
-            isv.Context.canvas.height = img.height;
+            wc.Context.canvas.height = img.height;
         }
-        isv.Context.drawImage(img, imgX, imgY, img.width, img.height);
+        wc.Context.drawImage(img, imgX, imgY, img.width, img.height);
         window.URL.revokeObjectURL(url);
     };
     $("#canvasScreenViewer").on("mousemove", function (e) {
         e.preventDefault();
-        if (InstaTech.ScreenViewer.Socket.readyState == WebSocket.OPEN)
+        if (WinCast.ScreenViewer.Socket.readyState == WebSocket.OPEN)
         {
             var pointX = e.offsetX / $("#canvasScreenViewer").width();
             var pointY = e.offsetY / $("#canvasScreenViewer").height();
@@ -134,11 +223,11 @@ $(document).ready(function () {
                 "PointX": pointX,
                 "PointY": pointY
             };
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
         }
     })
     $("#canvasScreenViewer").on("mousedown", function (e) {
-        if (InstaTech.ScreenViewer.Socket.readyState == WebSocket.OPEN)
+        if (WinCast.ScreenViewer.Socket.readyState == WebSocket.OPEN)
         {
             if (e.button != 0 && e.button != 2)
             {
@@ -159,11 +248,11 @@ $(document).ready(function () {
             {
                 request.Button = "Right";
             }
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
         }
     })
     $("#canvasScreenViewer").on("mouseup", function (e) {
-        if (InstaTech.ScreenViewer.Socket.readyState == WebSocket.OPEN) {
+        if (WinCast.ScreenViewer.Socket.readyState == WebSocket.OPEN) {
             if (e.button != 0 && e.button != 2) {
                 return;
             }
@@ -181,7 +270,7 @@ $(document).ready(function () {
                 e.preventDefault();
                 request.Button = "Right";
             }
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
         }
     });
     $("#canvasScreenViewer").on("click", function(e){
@@ -189,7 +278,7 @@ $(document).ready(function () {
         $("#buttonConnect").blur();
     });
     $(window).on("keydown", function (e) {
-        if (!$("#inputSessionID").is(":focus") && !$("#buttonConnect").is(":focus") && InstaTech.ScreenViewer.Socket.readyState == WebSocket.OPEN) {
+        if (!$("#inputSessionID").is(":focus") && !$("#buttonConnect").is(":focus") && WinCast.ScreenViewer.Socket.readyState == WebSocket.OPEN) {
             e.preventDefault();
             if (e.key == "Alt" || e.key == "Shift" || e.key == "Ctrl") {
                 return;
@@ -208,7 +297,7 @@ $(document).ready(function () {
                 "Type": "KeyPress",
                 "Key": e.key,
             };
-            InstaTech.ScreenViewer.Socket.send(JSON.stringify(request));
+            WinCast.ScreenViewer.Socket.send(JSON.stringify(request));
         };
     });
 });

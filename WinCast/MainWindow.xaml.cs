@@ -26,11 +26,11 @@ namespace WinCast
 {
     public partial class MainWindow : Window
     {
-        // Add your service paths here.
+        // IMPORTANT: Update the URLs here.
 #if DEBUG
         string servicePath = "ws://localhost:62637/Sockets/ScreenViewer.cshtml";
 #else
-        string servicePath = "wss://instatech.org/Sockets/ScreenViewer.cshtml";
+        string servicePath = "wss://yourWebsite/Sockets/ScreenViewer.cshtml";
 #endif
         ClientWebSocket socket { get; set; }
 
@@ -178,14 +178,6 @@ namespace WinCast
                                 break;
                         }
                     }
-                    else if (result.MessageType == WebSocketMessageType.Binary)
-                    {
-                        // TODO.
-                    }
-                    else if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        // TODO.
-                    }
                 }
 
             }
@@ -196,7 +188,6 @@ namespace WinCast
                 textAgentStatus.Text = "Disonnected";
                 textViewStatus.Visibility = Visibility.Collapsed;
                 capturing = false;
-                // TODO;
             }
         }
 
