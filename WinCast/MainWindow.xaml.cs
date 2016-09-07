@@ -165,12 +165,12 @@ namespace WinCast
                                 }
                                 break;
                             case "PartnerClose":
-                                textAgentStatus.Text = "Disonnected";
+                                textAgentStatus.Text = "Disconnected";
                                 textViewStatus.Visibility = Visibility.Collapsed;
                                 capturing = false;
                                 break;
                             case "PartnerError":
-                                textAgentStatus.Text = "Disonnected";
+                                textAgentStatus.Text = "Disconnected";
                                 textViewStatus.Visibility = Visibility.Collapsed;
                                 capturing = false;
                                 break;

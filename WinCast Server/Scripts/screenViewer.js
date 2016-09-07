@@ -70,7 +70,7 @@ function connectToClient() {
                 var length = byteArray.length;
                 imgX = Number(byteArray[length - 4] * 100 + byteArray[length - 3]);
                 imgY = Number(byteArray[length - 2] * 100 + byteArray[length - 1]);
-                url = window.URL.createObjectURL(new Blob([byteArray.subarray(0, length - 5)]));
+                url = window.URL.createObjectURL(new Blob([byteArray.subarray(0, length - 4)]));
                 img.src = url;
                 return;
             }
